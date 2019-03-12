@@ -1,0 +1,485 @@
+---
+title: "Psychometrics in R"
+subtitle: "A brief review with a class example"
+author: "Jordan Mark Barbone"
+date: "2019-03-14"
+output:
+  xaringan::moon_reader:
+    css: [default, default, default-fonts]
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      highlightSpans: false
+      countIncrementalSlides: false
+css: my-theme.css
+bibliography: sncss.bib
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/elsevier-vancouver.csl
+
+---
+class: center, middle, inverse
+
+# Quick psychometric analysis
+
+.super[_Scale for the Necessity of Control on Social Situations (SNCSS)_]
+
+---
+
+## Background
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+library(fansi)
+knitr::opts_chunk$set(warning = F,
+                      message = F,
+                      comment = "",
+                      crayon.enabled = F)
+```
+
+
+???
+This was a class project
+
+--
+
+.larger[
+Scale development class project
+{{content}}
+]
+
+--
+
+Psychometrics, Summer 2017
+{{content}}
+
+--
+
+V. K. Kumar, Ph.D.
+
+---
+
+## Outline
+
+.larger[
++ Initial development
++ Internal reliability and item analysis
++ Removal of _bad_ items
++ Recalculation
++ Convergent and divergent validity
+]
+
+???
+
++ So typically you might want to do a little research first but in this case we just went into it and started making items
++ Our item development process was simply shouting out possible items in class
++ Our professor guided us just a bit
+
+---
+
+## Item development
+
+.larger[
++ In class discussion
++ A total of ### items generated
++ Identification of Psychological construct
+]
+
+.super[
+_Need for control in social situations_
+]
+
+???
++ The prior research part is usually a lot more intensive but not for our group.  This was a summer class and we just had to work quickly
++ We all shouted out some ideas in class until we came to an agreement on a psychological construct
++ That psychological construct was **a need for control in social situations**
++ I still cannot remember exactly how this happened, but it did
+
+---
+
+## Validation
+
+.larger[
+
+Adaptive and Aggressive Assertiveness Scale (AAA-S) [@thompson2011adaptive]
+
+Basic Empathy Scale in Adults (BES-A) [@carre2013basic]
+
+Leadership Self-Report Scale (LSRS) [@dussault2013leadership]
+
+Narcissism Personality Inventory (NPI-16) [@ames2006npi]
+
+]
+
+???
+**The AAA-S**
++ 19 situations with a possible response or responses which are rated from a 5-point scale of _Never_ to _Always_, with non-labelled intermediate values, for the extent to which the response best describes how the test taker would response.
++ The scale has a total of 30 responses posed
+    - 15 measuring degree of Aggressive Assertiveness and
+    - 15 measuring degree of Adaptive Assertiveness
+
+**BES-A**
++ 20-item measure to assess empathy specifically in adults developed from the BES for children and adolescence.
++ The scale consists of
+    - an 11-item sub scale for Affective empathy and
+    - a 9-item sub scale for Cognitive empathy.
++ Each item is answered on a 5-point scale Likert scale.
+
+**LLS**
++ 46-item questionnaire to measure leadership factors.
++ The scale consists of the following factors:
+    - _**Transformational leadership**_ (25 items);
+        - _Charisma factor_ (8-items);
+        - _Intellectual stimulation_ (8-items);
+        - _Individual stimulation_ (8 items)
+    - _**Transactional leadership**_ (15 items);
+        - _Contingent reward_ (8 items);
+        - _Management-by-exception_ (7 items).
+    - _**Laissez-faire**_ (6 items)
+
+**NPI-16** [@ames2006npi]
++ abbreviated version of the original 40 item Narcissism Personality Inventory.
++ Each item proses a pair of statements to choose between based on which statement best aligns with the test taker’s feelings and beliefs about themselves.
+
+
+---
+class: inverse, center, middle
+
+# Analyses in R
+
+---
+class: inverse, middle
+
+## Internal reliability and item analysis
+
+---
+
+### Libraries
+
+.larger[
++ `psychometric` psychometric functions
++ `tidyverse` data organization
++ `broom` additional structural cleaning
++ `janitor` more tedious cleaning
++ `kableExtra` pretty tables
+]
+
+```{r load_libraries, echo = F}
+library(psychometric)
+library(tidyverse)
+library(broom)
+library(janitor)
+library(kableExtra)
+```
+
+???
+
+We're goig to load in the `psychometric` package before the obligatory `tidyverse` so as to not mask some important funtions like `select()` or the graphic parameter `alpha()`.
+
+---
+
+### A function
+
+
+```{r}
+kable_scroll <- function(x, .height, ...) {
+  scroll_box(kable_styling(kable(x, ...)), 
+             width = "100%", height = .height)
+}
+```
+
+.large[
++ easier to view
++ allows scrolling
+]
+
+???
+
+This function will just allow us to more easilys see our data
+
+---
+### Load data
+
+```{r}
+csv <- read_csv("sncss.csv")
+csv
+```
+
+???
+Already formated as a **tidy** format
+ + id = participant
+ + name = full name of scale
+ + scale = overall scale
+ + domain = domain of scale (not applicable for all)
+ + item = item number
+ + response = response/score
+ 
+Don't mind the arrows, it's just an aesthetic thing
+
+---
+
+### Totals table
+
+```{r create_totals, comment = ""}
+tots <- csv %>%
+  group_by(id, scale, domain) %>%
+  summarise(item = "total",
+            total = sum(response))
+kable_tots <- tots %>% 
+  unite(scale_domain, scale, domain) %>% ## Previously `name` #<<
+  select(-item) %>% 
+  spread(scale_domain, total)
+kable_scroll(kable_tots, "200px")
+```
+
+---
+
+### Item analysis
+
+.large[
++ `item.exam()`  
++ multiple scales
+]
+
+???
+
++ I hate loops
++ There's only one script I have right now using loops because I haven't had the time to figure out a better solutions
++ Loops are simple and a a necessary step in learning functional programminga
++ But they are sloooow once you start getting a little too crazy with them
++ Instead, we're going to use `tidy` method with functions from `dplyr`, `broom` and `purrr` to make our code more elegant
++ It first starts with creating what I like to call a **helper function**
++ The helper function has a very simple goal of allowing us to maintain clean code and make easy adjustment
+
+--
+
+.super[_NO LOOPS!_]
+
+--
+
+.large[
++ `purrr::map()`
++ define new function
++ work on `nest()`ed data
+]
+
+---
+
+### Item analysis
+
+```{r, echo = F}
+head(csv)
+```
+
+
+???
++ So let's take a quick peak at the data again
++ We want to run an analysis across several groups
+    - We'll have to nest that data first
+    - spread it out to fit the requierments of the function
+    - run the function
+    - (clean up the names a bit because I hate dots)
+    - add in in an identifier for the item number
+    - and strip away what we don't need
++ So here's a function that will perform that
++ The overall steps are
+    - Nesting the data
+    - Applying the function across each list element
+    - Unnesting
+    - Selecting
+    - Enjoying the easy code
+
+--
+
+```{r}
+item_example_helper <- function(x) {
+  x %>% 
+    spread(item, response) %>% 
+    select(-id, -scale, -domain) %>% 
+    item.exam %>% 
+    clean_names %>% 
+    as_tibble(rownames = "item") %>% 
+    select_if(~ !all(is.na(.)))
+}
+```
+
+---
+
+### Item analysis
+
+```{r}
+csv %>%
+  nest(-name) #<<
+```
+
+---
+
+### Item analysis
+
+```{r}
+csv %>%
+  nest(-name) %>% 
+  mutate(item_exam = map(data, item_example_helper)) #<<
+```
+
+---
+
+### Item analysis
+
+```{r}
+csv %>%
+  nest(-name) %>% 
+  mutate(item_exam = map(data, item_example_helper)) %>% 
+  unnest(item_exam) #<<
+```
+
+---
+
+### Item analysis
+
+```{r}
+csv %>% 
+  nest(-name) %>%
+  mutate(item_exam = map(data, item_example_helper)) %>%
+  unnest(item_exam) %>% 
+  kable_scroll("300px", digits = 3) #<<
+```
+
+```{r, echo = F}
+ie_tib <- csv %>% 
+  nest(-name) %>%
+  mutate(item_exam = map(data, item_example_helper)) %>%
+  unnest(item_exam)
+```
+
+---
+### Items to remove
+
+```{r}
+ie_tib %>%  filter(name == "CON_full") %>% select(name, item, item_tot_woi) %>%arrange(desc(item_tot_woi)) %>% 
+  kable_scroll("250px", digits = 3)
+keep_items <- ie_tib %>%
+  filter(name == "CON_full",
+         item_tot_woi > .25) %>% 
+  pull(item)
+```
+
+???
+
++ Item total without item (`item_tot_woi`) > 0.350
++ Re-run
+
+---
+
+## Calculate internal reliability
+
+$$
+Cronbach\ \alpha = \left(\frac{k}{k - 1}\right)\left(1 - \frac{\sum(\sigma^2_i)}{\sigma^2_X}\right)
+$$
++ $k$ = number of items on test
++ $\sigma^2_i$ = variance of each item
++ $\sigma^2_X$ = variance of total score
+
+???
++ Cronbach α advantages
+    - Only one administration
+    - Easy to compute
+    - Useful for power tsts
+    - Principle: average of all split-halves
++ Cronbach α disadvantages
+    - All content must be homogenous
+    - One administration
+        - Less variance
+        - One measure of error removed
+
+---
+
+## Calculate internal reliability
+
++ Run before removing items
++ Run after removing items
+
+```{r}
+csv %>%
+  filter(scale == "CON") %>%
+  spread(item, response) %>% 
+  select(-c(id:domain)) %>% ## requires wide format
+  cronbach %>% 
+  pluck("Alpha")
+csv %>%
+  filter(scale == "CON", item %in% keep_items) %>%
+  spread(item, response) %>% 
+  select(-c(id:domain)) %>% 
+  cronbach %>% 
+  pluck("Alpha")
+```
+
+---
+
+## Add in 17 item variance
+
+```{r}
+processed <- csv %>% 
+  filter(scale == "CON",
+         item %in% keep_items) %>% 
+  mutate(name = "CON_Short",
+         domain = "Short") %>% 
+  bind_rows(csv)
+processed
+```
+
+
+???
+We'll need to filter out out data
+Bind the rows back in
+
+---
+
+## Validity
+
+.larger[
++ **convergent validity**
++ **divergent validity**
+]
+
+???
+
+As important as it is to show that your scales is scoring similarly to other validate scales,  it is also important to show that your scale doesn't score similarly to those unrelated.  Constructs like this have multiple factors and we want to be sure that we aren't accidentally measuring anything else.  For psychiatric scales this may also be aided by the completion of the assessment by the respective psychiatric groups and similiar groups.  For example if you have an assessment for Alzheimer's disease you may want a group with AD, a group with MCI, and a healthy group to show score differences.
+
+---
+
+## Fun
+
+```{r}
+con_short <- processed %>% 
+  filter(name == "CON_Short") %>% 
+  select(-scale, -domain)
+
+cor_test_helper <- function(x) {
+  data <- x %>% 
+    rbind(con_short) %>% 
+    group_by(id, name) %>% 
+    summarise(tot = sum(response))
+  cor.test(~ tot + id, data = data)
+  }
+```
+
+---
+
+## Results
+
+```{r}
+processed %>% 
+  filter(name != "CON_Short") %>% 
+  nest(-scale, -domain) %>% 
+  mutate(cor_test = map(data, cor_test_helper),
+         tidy = map(cor_test, list(tidy, clean_names))) %>% 
+  unnest(tidy) %>% select(-data, -cor_test, -method, -estimate) %>% 
+  kable_scroll("250px", digits = 3)
+```
+
+---
+
+## Graphing
+
+[shiny app]()
+

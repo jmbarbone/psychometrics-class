@@ -1,0 +1,195 @@
+---
+title: "Untitled"
+author: "Jordan Mark Barbone"
+date: "3/6/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+## Results & Data Analysis
+
+### Data Wrangling
+
++ `psychometric` easy functions for our analyses
++ `tidyverse` obligatory
++ `broom` cleaning up some structures
++ `jantior` More cleaning (easy call for column names)
++ `kableExtra` pretty tables
+
+```{r load_libraries, comment = "", message = F, warning = F}
+library(psychometric)
+library(tidyverse)
+library(broom)
+library(janitor)
+library(kableExtra)
+```
+
+### Load in data
+
++ (Very) long format
++ Take a peak
+
+```{r view_data, comment = ""}
+csv <- read_csv("sncss.csv")
+csv
+glimpse(csv)
+map(csv, unique)
+```
+
+### Totals table
+
+```{r create_totals, comment = ""}
+tots <- csv %>%
+  group_by(id, scale, domain) %>%
+  summarise(item = "total",
+            total = sum(response))
+tots
+```
+
+And lastly we want to use the `broom` package to create a **tibble** which contains some item analysis
+
+```{r view_tibble, comment = "", warnings = F}
+item_example_helper <- function(x) {
+  x %>% 
+    spread(item, response) %>% 
+    select(-id, -scale, -domain) %>% 
+    item.exam %>% 
+    janitor::clean_names() %>% 
+    as_tibble(rownames = "item") %>% 
+    select_if(~ !all(is.na(.)))
+}
+
+ie_tib <- csv %>% 
+  nest(-name) %>% 
+  mutate(item_exam = map(data, item_example_helper)) %>% 
+  unnest(item_exam) %>% 
+  select(name, item, everything())
+
+kable(ie_tib) %>%
+  kable_styling %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
+### Reliability
+
+An item analysis was performed on the 31 original items using the `psych` and `psychometric` packages.  The analysis yielded a Cronbach’s α of .735.  A threshold for item reliability of .250 was set to determining whether an item would be removed or not.  Of the 31 items, 14 yielded reliability coefficients below this threshold and were subsequently removed.  A second item analysis was performed with the remaining 17 items.  Although item 30 in the second analysis showed a correlation coefficient of r = .182, removal of the item would have had only a slight positive effect on Cronbach’s α; an increase from .808 to .814 if deleted.  The question itself, “_I like to micromanage others_” was agreed to have a strong face value and retained for the SNCSS-17.
+
+```{r cronbach alpha, comment = ""} 
+alpha_df <- csv %>% 
+  filter(name == "CON_full") %>% 
+  spread(item, response) %>% 
+  select(-(id:domain))
+
+cronbach(alpha_df)$Alpha
+
+keep <- ie_tib %>%
+  filter(name == "CON_full",
+         item_tot_woi > .250) %>%
+  pull(item)
+
+cronbach(alpha_df[, keep])$Alpha
+```
+
+### Validity
+
+Internal consistency coefficients were computed for each factor/subscale: (BES-A) Affective Empathy; (BES-A) Cognitive Empathy; (AAA-S) Adaptive Assertiveness; AAA-S Aggressive Assertiveness; NPI.  As the sample size was limited, a more generous α = .15 was decided for measuring statistical significance.  The results of these analyses showed only one large difference in alpha coefficients.  The Laissez-faire subscale of the Leadership Self-Report Scale was originally reported to have a coefficient .65 by the developers but was found to have a much lower .352 in the present study.  The Laissez-faire subscale’s low correlation and significance (_r_ = -.002, _p_ = .993) is not surprising given its lowered alpha coefficient, low number of items, and small sample.
+
+```{r validity, comment = ""}
+cronbach_helper <- function(x) {
+  temp <- x %>% 
+    spread(item, response) %>% 
+    select(-(id:domain))
+  cronbach(temp)$Alpha
+}
+
+alpha_df_full <- csv %>% 
+  nest(-name) %>% 
+  mutate(cronbach = map(data, cronbach_helper)) %>% 
+  unnest(cronbach) %>% 
+  select_if(negate(is.list))
+
+kableExtra::kable(alpha_df_full, format = "markdown")
+```
+
+#### Items dropped
+
+- **Item 4** of the BES-A Affective Empathy scale “_I get frightened when I watch characters in a good scary movie_” was removed as it was deleted from the original validation because of its weakness in a two-factor and three-factor model [@carre2013basic].
+- The following items from the AAA-S were removed from this analysis as they were also removed from the original study due to low factor loadings – values below .3: **4a**, **4b**, **7b**, **9a**, **13b**, and **16b**.
+- Item **11a** was removed as an item 11b was noted in the original article but not on the scale
+- **14a** was removed for a similar reason as well
+- Items **13a** (“_If I am at a performance and someone keeps talking loudly, I … Would tell the person to shut up._”) and **16a** (“_If someone cuts in line ahead of me at the moves, I … Start making loud comments about how rude the person is._”) were both labeled as adaptive responses which appeared incorrect.  As it was not easily determined whether there was an error in numbering or labelling, these items were removed.
+
+#### Convergent Validity
+
+The AAA-S Aggressive assertiveness and NPI-16 were chosen to have expected positive correlations with the SNCSS-17 on the proposed concept that individuals more likely to need or assume control would have greater or more frequency aggressive behaviors and greater views of themselves.  Table 2 summarized these results.  Low and non-statistically significant correlations were found for Aggressive assertiveness and the NPI-16 (_r_ = .289, _p_ = .230; _r_ = .271, _p_ = .262).
+
+The BES-A Affective empathy and Cognitive empathy, AAA-S Adaptive assertiveness, and Leadership Self-Report Scale Laissez-faire were expected to negatively correlate with the SNCSS-17.  A necessity for control was originally viewed as requiring less empathetic considerations.  Behaviors and attitudes underlining a desire for control was not recognized as a demonstration of an adaptive or uninvolved leader but more so a destructive and demanding one.  A significant and strong positive correlation was found for the Adaptive assertiveness (_r_ = .493, _p_ = .032) but low correlation and significance were found for Affective empathy (_r_ = .325, _p_ = .174), Cognitive empathy (_r_ = .297, _p_ = .174), and Laissez-faire (_r_ = -.002, _p_ = .993).
+
+```{r, comment = ""}
+## To add in CON_17
+temp <- csv %>% 
+  group_by(id, name) %>% 
+  summarise(total = sum(response))
+
+temp_combined <- temp %>% 
+  filter(name == "CON_full") %>% 
+  select(-name) %>% 
+  rename(con = total) %>% 
+  left_join(filter(temp, name != "CON_full")) %>% 
+  ungroup
+
+corr_table <- temp_combined %>% 
+  nest(-name) %>% 
+  mutate(cor_test = map(data, ~cor.test(~ con + total, data = .)),
+         tidy = map(cor_test, list(tidy, clean_names))) %>% 
+  unnest(tidy) %>% 
+  select_if(negate(is.list))
+
+kableExtra::kable(corr_table, format = "markdown") 
+```
+
+Affective empathy and cognitive empathy had surprisingly positive correlation coefficients, thus contradicting the initial stance that attempting to acquire control is inversely correlated with an individual’s potential empathy.  The thoughts that all desire for control stems from selfish reasonings would need to reexamine.  Parsing out motivations and desires behind control, other than personal power, would help in understanding this trend in the analysis.
+
+Laissez-faire leadership subscale only contained 6 items, and with a sample size of _n_ = 17, the underwhelming results are of no surprise. The correlation and significance were negligible; thus no substantial considerations can be made.
+
+The strong positive correlation of the SNCSS-17 to the AAA-S Adaptive assertiveness subscale was an initial surprise.  A strong desire for control was not originally viewed as an adaptive trait in leadership.  However, adaption could function as a means of maintaining control.  Miron and Brehm [-@miron2006reactance] explain _reactance_ as the emotional-motivational response to situations perceived to constrict choice.  The individual reacts to these events with increased efforts to demonstrate their own control.  An adaptive individual would better be able to maintain their control in different situations than a non-adaptive or aggressive leader.  Take for instance item 4b and 12b of the AAA-S, “_I am at the grocery store and several of my items ring up incorrectly, I … Ask the cashier to do a price check on the particular items_” and “_If someone I don’t know well disagrees with me during a conversation, I … Continue elaborating on my opinion until the person understands it._”.   Both items demonstrate an adaptive reactance to an event which may be more successful than their alternatives; getting angry.  Alternative means of a solution (_e.g._, the item price-check) and persistence or persuasion, would do well for an individually trying to maintain control in a situation.
+
+#### Discriminant validity
+
+Two subscales from the Leadership Self-Report Scale, Transformational and Transactional leadership, were not hypothesized to have any indication for control.  A weak and non-significant correlation was found for Transactional leadership (_r_ = .026, _p_ = .915).  However, a significant negative correlation was found for Transformational leadership (_r_ = -.356, _p_ = .135).
+
+The results of Transactional leadership subscale confirm the intuition that there would exist no correlation between this measure and the SCNSS-17.  However, the correlation between Transformational leadership and desire for control require some explanation.  Transformational leadership.  This measure is based upon self-reports of cheerfully, optimism, and encouragement.  These are inspirational factors from a leader.  Glass and Singer [-@glass1972behavioral] demonstrate that when faced with pestering, uncontrollable stimuli, an individual’s cognitive ability is impaired and stress is elevated.  Perhaps our individuals that desire control are negatively affected by the lack of it or are perpetually worried about losing their control.  Their stress, from maintaining their position, may factor into their overall expression of joyfulness and transformational values.
+
+```{r corr_plots}
+theme_set(theme_light())
+
+ggplot(temp_combined, aes(x = con, y = total)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~name, scales = "free") +
+  labs(title = "Correlation of validity scales to #########",
+       x = "Total Score on SNCSS-30",
+       y = "Other scale score")
+```
+
+### Factor analysis
+
+A two component factor analysis was performed on the SCNSS-17 with a oblimin rotation using the `gpa` package.  See Table 3 for a summary.  Results demonstrated a strong factor loading of 5 items into one component and 8 items into a second component.  Four items did not show strong factor loading values for one particular component.  That is, the factor loading values for these components were below .30 for either component or showed cross loading between the two factors [@costello2005best].  After analyzing each item in relation to these components, the sets were categorized into **Motivation** items and **Ability** items.
+
+The factor loading analysis showed a suspicion that the items deemed suitable from class discussion and then filtered out with an item analysis, may be the cumulation of more than one factor in a need for control.  After the items were categorized by component, a determination of these components was made.  Ability items (_e.g._, “_It feels natural for me to lead conversations when working on group projects._”, “_I can get my way through talking to people._”) illustrate the possible magnitude of control an individual may posses through either persuasion or a feeling of nature leadership.  Items from the second component, Motivation (_e.g._, “_When I go on a trip, I like to keep a predetermined schedule._”, “_When things don’t go my way, I get upset._”, “_Typically, my judgement is better than my peers_”) illustrate desires to be involved in planning and making decisions as well reactions to possible threats of losing or not gaining control.  Separate analyses had not been performed with these possible subscales.  
+
+```{r fa, comment = "", message = F, warning = F}
+fa_df <- csv %>% 
+  filter(name == "CON_full") %>% 
+  spread(item, response) %>% 
+  select(-id, -name, -scale, -domain)
+
+fa <- psych::fa(fa_df, nfactors = 2, rotate = "varimax")
+fa$loadings
+plot(fa)
+```

@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+  <head>
+    <title>Psychometrics in R</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Jordan Mark Barbone" />
+    <meta name="date" content="2019-03-14" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link rel="stylesheet" href="my-theme.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Psychometrics in R
+## A brief review with a class example
+### Jordan Mark Barbone
+### 2019-03-14
+
+---
+
+class: center, middle, inverse
+
+# Quick psychometric analysis
+
+.super[_Scale for the Necessity of Control on Social Situations (SNCSS)_]
+
+---
+
+## Background
+
+
+
+
+???
+This was a class project
+
+--
+
+.larger[
+Scale development class project
+{{content}}
+]
+
+--
+
+Psychometrics, Summer 2017
+{{content}}
+
+--
+
+V. K. Kumar, Ph.D.
+
+---
+
+## Outline
+
+.larger[
++ Initial development
++ Internal reliability and item analysis
++ Removal of _bad_ items
++ Recalculation
++ Convergent and divergent validity
+]
+
+???
+
++ So typically you might want to do a little research first but in this case we just went into it and started making items
++ Our item development process was simply shouting out possible items in class
++ Our professor guided us just a bit
+
+---
+
+## Item development
+
+.larger[
++ In class discussion
++ A total of ### items generated
++ Identification of Psychological construct
+]
+
+.super[
+_Need for control in social situations_
+]
+
+???
++ The prior research part is usually a lot more intensive but not for our group.  This was a summer class and we just had to work quickly
++ We all shouted out some ideas in class until we came to an agreement on a psychological construct
++ That psychological construct was **a need for control in social situations**
++ I still cannot remember exactly how this happened, but it did
+
+---
+
+## Validation
+
+.larger[
+
+Adaptive and Aggressive Assertiveness Scale (AAA-S) [@thompson2011adaptive]
+
+Basic Empathy Scale in Adults (BES-A) [@carre2013basic]
+
+Leadership Self-Report Scale (LSRS) [@dussault2013leadership]
+
+Narcissism Personality Inventory (NPI-16) [@ames2006npi]
+
+]
+
+???
+**The AAA-S**
++ 19 situations with a possible response or responses which are rated from a 5-point scale of _Never_ to _Always_, with non-labelled intermediate values, for the extent to which the response best describes how the test taker would response.
++ The scale has a total of 30 responses posed
+    - 15 measuring degree of Aggressive Assertiveness and
+    - 15 measuring degree of Adaptive Assertiveness
+
+**BES-A**
++ 20-item measure to assess empathy specifically in adults developed from the BES for children and adolescence.
++ The scale consists of
+    - an 11-item sub scale for Affective empathy and
+    - a 9-item sub scale for Cognitive empathy.
++ Each item is answered on a 5-point scale Likert scale.
+
+**LLS**
++ 46-item questionnaire to measure leadership factors.
++ The scale consists of the following factors:
+    - _**Transformational leadership**_ (25 items);
+        - _Charisma factor_ (8-items);
+        - _Intellectual stimulation_ (8-items);
+        - _Individual stimulation_ (8 items)
+    - _**Transactional leadership**_ (15 items);
+        - _Contingent reward_ (8 items);
+        - _Management-by-exception_ (7 items).
+    - _**Laissez-faire**_ (6 items)
+
+**NPI-16** [@ames2006npi]
++ abbreviated version of the original 40 item Narcissism Personality Inventory.
++ Each item proses a pair of statements to choose between based on which statement best aligns with the test taker’s feelings and beliefs about themselves.
+
+
+---
+class: inverse, center, middle
+
+# Analyses in R
+
+---
+class: inverse, middle
+
+## Internal reliability and item analysis
+
+---
+
+### Libraries
+
+.larger[
++ `psychometric` psychometric functions
++ `tidyverse` data organization
++ `broom` additional structural cleaning
++ `janitor` more tedious cleaning
++ `kableExtra` pretty tables
+]
+
+
+
+???
+
+We're goig to load in the `psychometric` package before the obligatory `tidyverse` so as to not mask some important funtions like `select()` or the graphic parameter `alpha()`.
+
+---
+
+### A function
+
+
+
+```r
+kable_scroll &lt;- function(x, .height, ...) {
+  scroll_box(kable_styling(kable(x, ...)), 
+             width = "100%", height = .height)
+}
+```
+
+.large[
++ easier to view
++ allows scrolling
+]
+
+???
+
+This function will just allow us to more easilys see our data
+
+---
+### Load data
+
+
+```r
+csv &lt;- read_csv("sncss.csv")
+csv
+```
+
+```
+# A tibble: 2,052 x 6
+      id name    scale domain  item response
+   &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;  &lt;dbl&gt;    &lt;dbl&gt;
+ 1     1 AAAS_AD AAAS  AD         1        4
+ 2     1 AAAS_AD AAAS  AD         2        4
+ 3     1 AAAS_AD AAAS  AD         3        5
+ 4     1 AAAS_AD AAAS  AD         4        2
+ 5     1 AAAS_AD AAAS  AD         5        1
+ 6     1 AAAS_AD AAAS  AD         6        4
+ 7     1 AAAS_AD AAAS  AD         7        5
+ 8     1 AAAS_AD AAAS  AD         8        3
+ 9     1 AAAS_AD AAAS  AD         9        3
+10     1 AAAS_AD AAAS  AD        10        4
+# ... with 2,042 more rows
+```
+
+???
+Already formated as a **tidy** format
+ + id = participant
+ + name = full name of scale
+ + scale = overall scale
+ + domain = domain of scale (not applicable for all)
+ + item = item number
+ + response = response/score
+ 
+Don't mind the arrows, it's just an aesthetic thing
+
+---
+
+### Totals table
+
+
+```r
+tots &lt;- csv %&gt;%
+  group_by(id, scale, domain) %&gt;%
+  summarise(item = "total",
+            total = sum(response))
+kable_tots &lt;- tots %&gt;% 
+* unite(scale_domain, scale, domain) %&gt;% ## Previously `name`
+  select(-item) %&gt;% 
+  spread(scale_domain, total)
+kable_scroll(kable_tots, "200px")
+```
+
+&lt;div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:200px; overflow-x: scroll; width:100%; "&gt;&lt;table class="table" style="margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; id &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AAAS_AD &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AAAS_AG &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; BES_AF &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; BES_CE &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; CON_full &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; LEAD_LF &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; LEAD_TA &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; LEAD_TF &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; NPI_full &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 106 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 41 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 102 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 37 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 94 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 32 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 87 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 43 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 41 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 88 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 41 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 42 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 99 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 42 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 43 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 98 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 86 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 110 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 34 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 105 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 46 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 37 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 37 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 90 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 40 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 104 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 31 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 32 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 92 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 43 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 14 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 95 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 46 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 29 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 84 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 13 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 40 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 47 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 123 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 14 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 85 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 46 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 35 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 107 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 42 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 40 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 112 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 42 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+---
+
+### Item analysis
+
+.large[
++ `item.exam()`  
++ multiple scales
+]
+
+???
+
++ I hate loops
++ There's only one script I have right now using loops because I haven't had the time to figure out a better solutions
++ Loops are simple and a a necessary step in learning functional programminga
++ But they are sloooow once you start getting a little too crazy with them
++ Instead, we're going to use `tidy` method with functions from `dplyr`, `broom` and `purrr` to make our code more elegant
++ It first starts with creating what I like to call a **helper function**
++ The helper function has a very simple goal of allowing us to maintain clean code and make easy adjustment
+
+--
+
+.super[_NO LOOPS!_]
+
+--
+
+.large[
++ `purrr::map()`
++ define new function
++ work on `nest()`ed data
+]
+
+---
+
+### Item analysis
+
+
+```
+# A tibble: 6 x 6
+     id name    scale domain  item response
+  &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt;  &lt;dbl&gt;    &lt;dbl&gt;
+1     1 AAAS_AD AAAS  AD         1        4
+2     1 AAAS_AD AAAS  AD         2        4
+3     1 AAAS_AD AAAS  AD         3        5
+4     1 AAAS_AD AAAS  AD         4        2
+5     1 AAAS_AD AAAS  AD         5        1
+6     1 AAAS_AD AAAS  AD         6        4
+```
+
+
+???
++ So let's take a quick peak at the data again
++ We want to run an analysis across several groups
+    - We'll have to nest that data first
+    - spread it out to fit the requierments of the function
+    - run the function
+    - (clean up the names a bit because I hate dots)
+    - add in in an identifier for the item number
+    - and strip away what we don't need
++ So here's a function that will perform that
++ The overall steps are
+    - Nesting the data
+    - Applying the function across each list element
+    - Unnesting
+    - Selecting
+    - Enjoying the easy code
+
+--
+
+
+```r
+item_example_helper &lt;- function(x) {
+  x %&gt;% 
+    spread(item, response) %&gt;% 
+    select(-id, -scale, -domain) %&gt;% 
+    item.exam %&gt;% 
+    clean_names %&gt;% 
+    as_tibble(rownames = "item") %&gt;% 
+    select_if(~ !all(is.na(.)))
+}
+```
+
+---
+
+### Item analysis
+
+
+```r
+csv %&gt;%
+* nest(-name)
+```
+
+```
+# A tibble: 9 x 2
+  name     data              
+  &lt;chr&gt;    &lt;list&gt;            
+1 AAAS_AD  &lt;tibble [190 x 5]&gt;
+2 AAAS_AG  &lt;tibble [209 x 5]&gt;
+3 BES_AF   &lt;tibble [190 x 5]&gt;
+4 BES_CE   &lt;tibble [171 x 5]&gt;
+5 CON_full &lt;tibble [589 x 5]&gt;
+6 LEAD_LF  &lt;tibble [57 x 5]&gt; 
+7 LEAD_TA  &lt;tibble [114 x 5]&gt;
+8 LEAD_TF  &lt;tibble [228 x 5]&gt;
+9 NPI_full &lt;tibble [304 x 5]&gt;
+```
+
+---
+
+### Item analysis
+
+
+```r
+csv %&gt;%
+  nest(-name) %&gt;% 
+* mutate(item_exam = map(data, item_example_helper))
+```
+
+```
+# A tibble: 9 x 3
+  name     data               item_exam        
+  &lt;chr&gt;    &lt;list&gt;             &lt;list&gt;           
+1 AAAS_AD  &lt;tibble [190 x 5]&gt; &lt;tibble [10 x 7]&gt;
+2 AAAS_AG  &lt;tibble [209 x 5]&gt; &lt;tibble [11 x 7]&gt;
+3 BES_AF   &lt;tibble [190 x 5]&gt; &lt;tibble [10 x 7]&gt;
+4 BES_CE   &lt;tibble [171 x 5]&gt; &lt;tibble [9 x 7]&gt; 
+5 CON_full &lt;tibble [589 x 5]&gt; &lt;tibble [31 x 7]&gt;
+6 LEAD_LF  &lt;tibble [57 x 5]&gt;  &lt;tibble [3 x 7]&gt; 
+7 LEAD_TA  &lt;tibble [114 x 5]&gt; &lt;tibble [6 x 7]&gt; 
+8 LEAD_TF  &lt;tibble [228 x 5]&gt; &lt;tibble [12 x 7]&gt;
+9 NPI_full &lt;tibble [304 x 5]&gt; &lt;tibble [16 x 7]&gt;
+```
+
+---
+
+### Item analysis
+
+
+```r
+csv %&gt;%
+  nest(-name) %&gt;% 
+  mutate(item_exam = map(data, item_example_helper)) %&gt;% 
+* unnest(item_exam)
+```
+
+```
+# A tibble: 108 x 8
+   name  item  sample_sd item_total item_tot_woi difficulty item_reliab
+   &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt;      &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;       &lt;dbl&gt;
+ 1 AAAS~ 1          1.33      0.648       0.509        2.89       0.839
+ 2 AAAS~ 2          1.15      0.598       0.470        3.89       0.670
+ 3 AAAS~ 3          1.33      0.497       0.325        4          0.644
+ 4 AAAS~ 4          1.47      0.554       0.373        3.21       0.796
+ 5 AAAS~ 5          1.35      0.270       0.0704       1.95       0.355
+ 6 AAAS~ 6          1.15      0.620       0.496        3.89       0.694
+ 7 AAAS~ 7          1.17      0.561       0.424        3.84       0.638
+ 8 AAAS~ 8          1.17      0.746       0.651        3.84       0.847
+ 9 AAAS~ 9          1.29      0.378       0.197        3          0.475
+10 AAAS~ 10         1.35      0.439       0.256        3.53       0.576
+# ... with 98 more rows, and 1 more variable: item_rel_woi &lt;dbl&gt;
+```
+
+---
+
+### Item analysis
+
+
+```r
+csv %&gt;% 
+  nest(-name) %&gt;%
+  mutate(item_exam = map(data, item_example_helper)) %&gt;%
+  unnest(item_exam) %&gt;% 
+* kable_scroll("300px", digits = 3)
+```
+
+&lt;div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:300px; overflow-x: scroll; width:100%; "&gt;&lt;table class="table" style="margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; name &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; item &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; sample_sd &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; item_total &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; item_tot_woi &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; difficulty &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; item_reliab &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; item_rel_woi &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.329 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.648 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.509 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.839 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.659 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.150 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.598 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.470 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.670 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.526 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.333 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.497 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.325 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.644 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.475 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.554 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.373 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.796 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.536 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.353 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.270 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.070 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.947 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.355 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.093 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.150 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.620 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.496 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.694 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.555 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.167 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.561 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.424 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.638 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.482 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.167 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.746 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.651 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.847 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.740 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.291 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.378 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.197 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.475 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.247 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.349 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.439 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.256 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.576 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.336 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.015 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.542 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.449 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.535 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.444 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.349 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.704 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.609 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.923 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.799 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.268 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.598 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.489 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.947 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.738 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.604 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.349 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.274 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.120 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.360 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.157 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.197 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.473 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.354 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.105 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.552 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.412 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.020 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.729 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.665 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.724 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.660 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.243 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.759 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.686 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.830 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.240 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.833 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.779 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.005 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.940 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.300 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.517 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.392 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.632 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.655 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.496 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.342 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.799 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.730 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.044 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.953 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS_AG &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.545 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.567 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.424 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.947 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.852 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.638 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.567 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.640 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.566 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.353 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.313 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.955 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.781 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.688 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.726 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.640 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.015 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.294 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.099 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.290 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.097 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.073 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.559 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.387 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.584 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.404 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.933 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.708 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.596 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.643 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.542 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.831 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.450 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.306 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.364 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.248 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.885 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.658 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.541 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.316 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.567 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.466 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.017 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.385 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.196 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.579 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.381 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.194 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.012 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.532 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.366 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.524 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.360 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_AF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.875 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.609 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.482 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.105 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.519 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.411 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.765 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.711 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.640 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.158 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.530 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.476 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.015 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.606 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.482 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.598 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.476 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.933 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.717 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.627 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.651 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.570 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.841 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.574 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.469 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.470 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.384 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.902 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.667 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.571 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.586 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.501 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.970 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.939 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.914 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.053 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.887 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.864 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.882 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.855 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.807 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.734 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.693 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.875 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.758 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.105 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.645 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.583 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES_CE &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.958 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.836 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.778 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.158 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.780 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.725 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.057 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.219 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.122 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.225 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.126 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.994 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.550 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.481 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.533 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.465 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.976 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.462 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.386 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.439 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.366 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.098 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.183 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.081 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.195 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.087 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.121 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.513 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.429 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.560 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.469 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.970 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.100 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.010 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.053 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.095 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.009 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.918 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.514 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.447 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.459 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.399 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.905 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.352 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.275 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.310 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.242 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.084 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.447 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.555 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.471 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.994 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.540 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.469 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.523 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.454 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.150 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.449 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.357 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.105 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.502 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.399 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.955 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.316 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.232 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.294 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.216 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.831 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.155 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.078 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.632 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.125 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.063 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 14 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.772 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.096 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.024 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.073 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.018 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.161 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.068 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.156 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.066 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.841 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.516 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.454 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.422 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.372 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.958 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.594 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.532 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.554 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.496 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.212 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.136 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.023 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.632 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.161 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.028 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.264 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.163 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.045 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.200 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.056 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.015 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.384 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.299 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.158 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.380 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.296 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.165 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.415 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.319 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.470 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.361 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.688 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.209 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.147 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.140 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.098 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.017 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.153 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.059 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.579 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.152 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.059 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 24 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.046 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.418 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.333 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.426 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.339 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.020 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.002 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.093 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.002 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.092 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.172 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.360 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.259 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.411 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.296 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.872 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.204 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.124 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.173 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.106 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.020 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.466 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.386 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.463 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.384 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 29 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.898 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.134 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.051 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.158 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.117 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.044 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.240 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.375 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.269 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.453 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.325 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 31 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.429 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.619 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.526 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.861 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.732 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_LF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.787 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.771 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.789 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.591 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.162 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_LF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.452 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.541 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.206 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.238 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.091 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_LF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.597 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.654 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.223 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.380 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.130 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.692 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.818 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.714 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.579 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.551 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.481 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.692 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.844 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.754 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.579 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.569 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.508 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.961 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.563 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.283 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.527 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.264 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.713 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.470 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.255 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.326 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.177 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.692 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.711 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.565 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.579 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.479 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.381 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.765 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.643 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.452 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.842 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.478 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.337 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.513 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.412 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.300 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.205 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.150 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.831 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.573 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.411 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.632 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.463 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.333 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.582 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.836 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.785 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.445 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.652 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.539 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.434 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.359 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.671 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.463 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.320 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.303 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.209 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.562 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.574 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.470 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.737 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.314 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.257 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.612 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.301 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.157 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.179 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.093 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.572 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.443 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.381 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.295 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.831 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.834 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.753 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.632 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.674 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.608 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.607 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.083 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.065 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.049 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.038 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.562 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.053 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.084 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.029 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.046 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD_TF &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.692 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.719 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.621 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.485 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.418 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.418 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.302 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.207 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.149 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.531 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.427 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.262 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.211 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.452 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.585 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.501 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.258 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.221 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.419 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.424 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.330 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.173 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.134 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.249 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.122 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.123 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.060 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.478 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.011 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.111 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.684 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.005 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.052 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.496 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.483 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.376 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.368 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.233 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.181 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.419 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.287 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.184 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.211 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.117 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.075 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.478 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.408 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.298 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.316 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.190 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.139 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.513 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.528 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.423 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.474 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.264 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.211 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.452 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.554 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.465 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.244 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.205 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.587 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.492 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.290 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.243 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.507 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.447 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.333 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.220 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.164 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 14 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.452 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.522 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.430 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.263 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.230 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.189 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.749 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.527 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.366 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.316 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.385 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.267 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.961 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.622 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.432 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.421 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.582 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.404 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+
+
+---
+### Items to remove
+
+
+```r
+ie_tib %&gt;%  filter(name == "CON_full") %&gt;% select(name, item, item_tot_woi) %&gt;%arrange(desc(item_tot_woi)) %&gt;% 
+  kable_scroll("250px", digits = 3)
+```
+
+&lt;div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:250px; overflow-x: scroll; width:100%; "&gt;&lt;table class="table" style="margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; name &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; item &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; item_tot_woi &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.532 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 31 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.526 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.481 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.469 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.454 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.447 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.447 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.429 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.386 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.386 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.357 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 24 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.333 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 21 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.319 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 20 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.299 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.275 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.269 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.259 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.232 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.147 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.124 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.122 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.081 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.078 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.068 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 23 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.059 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 29 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.051 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 19 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.045 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 14 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.024 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 18 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.023 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.010 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON_full &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.093 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+```r
+keep_items &lt;- ie_tib %&gt;%
+  filter(name == "CON_full",
+         item_tot_woi &gt; .25) %&gt;% 
+  pull(item)
+```
+
+???
+
++ Item total without item (`item_tot_woi`) &gt; 0.350
++ Re-run
+
+---
+
+## Calculate internal reliability
+
+$$
+Cronbach\ \alpha = \left(\frac{k}{k - 1}\right)\left(1 - \frac{\sum(\sigma^2_i)}{\sigma^2_X}\right)
+$$
++ `\(k\)` = number of items on test
++ `\(\sigma^2_i\)` = variance of each item
++ `\(\sigma^2_X\)` = variance of total score
+
+???
++ Cronbach α advantages
+    - Only one administration
+    - Easy to compute
+    - Useful for power tsts
+    - Principle: average of all split-halves
++ Cronbach α disadvantages
+    - All content must be homogenous
+    - One administration
+        - Less variance
+        - One measure of error removed
+
+---
+
+## Calculate internal reliability
+
++ Run before removing items
++ Run after removing items
+
+
+```r
+csv %&gt;%
+  filter(scale == "CON") %&gt;%
+  spread(item, response) %&gt;% 
+  select(-c(id:domain)) %&gt;% ## requires wide format
+  cronbach %&gt;% 
+  pluck("Alpha")
+```
+
+```
+[1] 0.7354022
+```
+
+```r
+csv %&gt;%
+  filter(scale == "CON", item %in% keep_items) %&gt;%
+  spread(item, response) %&gt;% 
+  select(-c(id:domain)) %&gt;% 
+  cronbach %&gt;% 
+  pluck("Alpha")
+```
+
+```
+[1] 0.8079929
+```
+
+---
+
+## Add in 17 item variance
+
+
+```r
+processed &lt;- csv %&gt;% 
+  filter(scale == "CON",
+         item %in% keep_items) %&gt;% 
+  mutate(name = "CON_Short",
+         domain = "Short") %&gt;% 
+  bind_rows(csv)
+processed
+```
+
+```
+# A tibble: 2,375 x 6
+      id name      scale domain  item response
+   &lt;dbl&gt; &lt;chr&gt;     &lt;chr&gt; &lt;chr&gt;  &lt;dbl&gt;    &lt;dbl&gt;
+ 1     1 CON_Short CON   Short      2        3
+ 2     1 CON_Short CON   Short      3        4
+ 3     1 CON_Short CON   Short      5        5
+ 4     1 CON_Short CON   Short      7        3
+ 5     1 CON_Short CON   Short      8        3
+ 6     1 CON_Short CON   Short      9        3
+ 7     1 CON_Short CON   Short     10        3
+ 8     1 CON_Short CON   Short     11        2
+ 9     1 CON_Short CON   Short     16        4
+10     1 CON_Short CON   Short     17        2
+# ... with 2,365 more rows
+```
+
+
+???
+We'll need to filter out out data
+Bind the rows back in
+
+---
+
+## Validity
+
+.larger[
++ **convergent validity**
++ **divergent validity**
+]
+
+???
+
+As important as it is to show that your scales is scoring similarly to other validate scales,  it is also important to show that your scale doesn't score similarly to those unrelated.  Constructs like this have multiple factors and we want to be sure that we aren't accidentally measuring anything else.  For psychiatric scales this may also be aided by the completion of the assessment by the respective psychiatric groups and similiar groups.  For example if you have an assessment for Alzheimer's disease you may want a group with AD, a group with MCI, and a healthy group to show score differences.
+
+---
+
+## Fun
+
+
+```r
+con_short &lt;- processed %&gt;% 
+  filter(name == "CON_Short") %&gt;% 
+  select(-scale, -domain)
+
+cor_test_helper &lt;- function(x) {
+  data &lt;- x %&gt;% 
+    rbind(con_short) %&gt;% 
+    group_by(id, name) %&gt;% 
+    summarise(tot = sum(response))
+  cor.test(~ tot + id, data = data)
+  }
+```
+
+---
+
+## Results
+
+
+```r
+processed %&gt;% 
+  filter(name != "CON_Short") %&gt;% 
+  nest(-scale, -domain) %&gt;% 
+  mutate(cor_test = map(data, cor_test_helper),
+         tidy = map(cor_test, list(tidy, clean_names))) %&gt;% 
+  unnest(tidy) %&gt;% select(-data, -cor_test, -method, -estimate) %&gt;% 
+  kable_scroll("250px", digits = 3)
+```
+
+&lt;div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:250px; overflow-x: scroll; width:100%; "&gt;&lt;table class="table" style="margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; scale &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; domain &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; statistic &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; p_value &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; parameter &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; conf_low &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; conf_high &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; alternative &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AD &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.233 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.817 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.284 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.354 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; AAAS &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AG &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.500 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.620 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.243 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.392 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; AF &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.115 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.909 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.337 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.302 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; BES &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; CE &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.133 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.895 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.339 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.300 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; CON &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; full &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.349 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.729 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.267 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.371 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; LF &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.113 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.911 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.303 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.336 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; TA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.245 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.808 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.283 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.356 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; TF &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.601 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.552 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.227 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.406 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; NPI &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; full &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.130 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.897 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.300 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.339 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+---
+
+## Graphing
+
+
+```r
+source("testing/app.R")
+```
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"highlightSpans": false,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();</script>
+
+<script>
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
