@@ -78,7 +78,7 @@ V. K. Kumar, Ph.D.
 
 .larger[
 + In class discussion
-+ A total of ### items generated
++ A total of 31 items generated
 + Identification of Psychological construct
 ]
 
@@ -98,13 +98,13 @@ _Need for control in social situations_
 
 .larger[
 
-Adaptive and Aggressive Assertiveness Scale (AAA-S) [@thompson2011adaptive]
+Adaptive and Aggressive Assertiveness Scale (AAA-S)
 
-Basic Empathy Scale in Adults (BES-A) [@carre2013basic]
+Basic Empathy Scale in Adults (BES-A)
 
-Leadership Self-Report Scale (LSRS) [@dussault2013leadership]
+Leadership Self-Report Scale (LSRS)
 
-Narcissism Personality Inventory (NPI-16) [@ames2006npi]
+Narcissism Personality Inventory (NPI-16)
 
 ]
 
@@ -194,7 +194,7 @@ This function will just allow us to more easilys see our data
 
 
 ```r
-csv &lt;- read_csv("sncss.csv")
+csv &lt;- read_csv("~/GitHub/psychometrics-class/sncss.csv")
 csv
 ```
 
@@ -236,11 +236,12 @@ tots &lt;- csv %&gt;%
   group_by(id, scale, domain) %&gt;%
   summarise(item = "total",
             total = sum(response))
-kable_tots &lt;- tots %&gt;% 
+tots %&gt;% 
+  ungroup %&gt;% 
 * unite(scale_domain, scale, domain) %&gt;% ## Previously `name`
   select(-item) %&gt;% 
-  spread(scale_domain, total)
-kable_scroll(kable_tots, "200px")
+  spread(scale_domain, total) %&gt;% 
+  kable_scroll("200px")
 ```
 
 &lt;div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:200px; overflow-x: scroll; width:100%; "&gt;&lt;table class="table" style="margin-left: auto; margin-right: auto;"&gt;
@@ -1985,10 +1986,9 @@ $$
 ```r
 csv %&gt;%
   filter(scale == "CON") %&gt;%
-  spread(item, response) %&gt;% 
+  spread(item, response) %&gt;%
   select(-c(id:domain)) %&gt;% ## requires wide format
-  cronbach %&gt;% 
-  pluck("Alpha")
+  cronbach %&gt;% pluck("Alpha")
 ```
 
 ```
@@ -1997,11 +1997,11 @@ csv %&gt;%
 
 ```r
 csv %&gt;%
-  filter(scale == "CON", item %in% keep_items) %&gt;%
+  filter(scale == "CON",
+*        item %in% keep_items) %&gt;%
   spread(item, response) %&gt;% 
   select(-c(id:domain)) %&gt;% 
-  cronbach %&gt;% 
-  pluck("Alpha")
+  cronbach %&gt;%  pluck("Alpha")
 ```
 
 ```
@@ -2069,11 +2069,13 @@ con_short &lt;- processed %&gt;%
   select(-scale, -domain)
 
 cor_test_helper &lt;- function(x) {
+  x_scale &lt;- unique(x$name)
   data &lt;- x %&gt;% 
     rbind(con_short) %&gt;% 
     group_by(id, name) %&gt;% 
-    summarise(tot = sum(response))
-  cor.test(~ tot + id, data = data)
+    summarise(total = sum(response))  %&gt;% 
+    spread(name, total)
+  cor.test(~ CON_Short + eval(parse(text = x_scale)), data = data)
   }
 ```
 
@@ -2088,7 +2090,7 @@ processed %&gt;%
   nest(-scale, -domain) %&gt;% 
   mutate(cor_test = map(data, cor_test_helper),
          tidy = map(cor_test, list(tidy, clean_names))) %&gt;% 
-  unnest(tidy) %&gt;% select(-data, -cor_test, -method, -estimate) %&gt;% 
+  unnest(tidy) %&gt;% select(-data, -cor_test, -method) %&gt;% 
   kable_scroll("250px", digits = 3)
 ```
 
@@ -2097,6 +2099,7 @@ processed %&gt;%
   &lt;tr&gt;
    &lt;th style="text-align:left;"&gt; scale &lt;/th&gt;
    &lt;th style="text-align:left;"&gt; domain &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; estimate &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; statistic &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; p_value &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; parameter &lt;/th&gt;
@@ -2109,104 +2112,141 @@ processed %&gt;%
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; AAAS &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; AD &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.233 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.817 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.284 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.354 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.493 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.334 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.032 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.049 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.774 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; AAAS &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; AG &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.500 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.620 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.243 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.392 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.289 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.245 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.230 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.190 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.657 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; BES &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; AF &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.115 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.909 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.337 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.302 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.325 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.419 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.174 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.151 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.679 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; BES &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; CE &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.133 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.895 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.339 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.300 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.297 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.281 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.217 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.182 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.662 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; CON &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; full &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.349 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.729 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.267 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.371 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.949 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 12.361 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.000 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.869 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.980 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; LF &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.113 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.911 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.303 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.336 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.002 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.009 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.993 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.456 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.453 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; TA &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.245 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.808 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.283 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.356 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.026 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.108 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.915 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.433 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.475 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; LEAD &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; TF &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.601 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.552 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.227 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.406 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.356 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.568 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.135 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.697 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.118 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; NPI &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; full &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.130 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.897 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 36 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; -0.300 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.339 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.271 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.159 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.262 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.209 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.646 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; two.sided &lt;/td&gt;
   &lt;/tr&gt;
 &lt;/tbody&gt;
 &lt;/table&gt;&lt;/div&gt;
 
+
+
 ---
 
 ## Graphing
 
+.super[
+[shiny app](https://jmbarbone.shinyapps.io/psychometric-class-scales/)
+]
 
-```r
-source("testing/app.R")
-```
+???
+
+#### Convergent Validity
+
+Expected positive
+
++ AAA-S aggressive
++ NPI-16
+
++ BES-Affective empathy
++ BES-Cognitive empathy: 
+
+_**Positive**_
+The **AAA-S Aggressive assertiveness** and **NPI-16** were chosen to have expected **positive correlations** with the SNCSS-17 on the proposed concept that individuals more likely to need or assume control would have greater or more frequency aggressive behaviors and greater views of themselves.
+
+_**Negative**_
+The **BES-A Affective empathy and Cognitive empathy**, **AAA-S Adaptive assertiveness**, and **Leadership Self-Report Scale Laissez-faire** were expected to _**negatively**_ correlate with the SNCSS-17.  A necessity for control was originally viewed as requiring less empathetic considerations.  Behaviors and attitudes underlining a desire for control was not recognized as a demonstration of an adaptive or uninvolved leader but more so a destructive and demanding one.
+
+
+**Affective empathy** and **cognitive empathy** had surprisingly positive correlation coefficients, thus contradicting the initial stance that attempting to acquire control is inversely correlated with an individual’s potential empathy.  The thoughts that all desire for control stems from selfish reasonings would need to reexamine.  Parsing out motivations and desires behind control, other than personal power, would help in understanding this trend in the analysis.
+
+**Laissez-faire leadership** subscale only contained 6 items, and with a sample size of _n_ = 17, the underwhelming results are of no surprise. The correlation and significance were negligible; thus no substantial considerations can be made.
+
+#### Discriminant validity
+
+Two subscales from the **Leadership Self-Report Scale, Transformational and Transactional leadership**, were _**not hypothesized to have any**_ indication for control.
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>

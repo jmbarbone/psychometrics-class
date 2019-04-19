@@ -80,7 +80,7 @@ V. K. Kumar, Ph.D.
 
 .larger[
 + In class discussion
-+ A total of ### items generated
++ A total of 31 items generated
 + Identification of Psychological construct
 ]
 
@@ -100,13 +100,13 @@ _Need for control in social situations_
 
 .larger[
 
-Adaptive and Aggressive Assertiveness Scale (AAA-S) [@thompson2011adaptive]
+Adaptive and Aggressive Assertiveness Scale (AAA-S)
 
-Basic Empathy Scale in Adults (BES-A) [@carre2013basic]
+Basic Empathy Scale in Adults (BES-A)
 
-Leadership Self-Report Scale (LSRS) [@dussault2013leadership]
+Leadership Self-Report Scale (LSRS)
 
-Narcissism Personality Inventory (NPI-16) [@ames2006npi]
+Narcissism Personality Inventory (NPI-16)
 
 ]
 
@@ -200,7 +200,7 @@ This function will just allow us to more easilys see our data
 ### Load data
 
 ```{r}
-csv <- read_csv("sncss.csv")
+csv <- read_csv("~/GitHub/psychometrics-class/sncss.csv")
 csv
 ```
 
@@ -224,11 +224,12 @@ tots <- csv %>%
   group_by(id, scale, domain) %>%
   summarise(item = "total",
             total = sum(response))
-kable_tots <- tots %>% 
+tots %>% 
+  ungroup %>% 
   unite(scale_domain, scale, domain) %>% ## Previously `name` #<<
   select(-item) %>% 
-  spread(scale_domain, total)
-kable_scroll(kable_tots, "200px")
+  spread(scale_domain, total) %>% 
+  kable_scroll("200px")
 ```
 
 ---
@@ -401,16 +402,15 @@ $$
 ```{r}
 csv %>%
   filter(scale == "CON") %>%
-  spread(item, response) %>% 
+  spread(item, response) %>%
   select(-c(id:domain)) %>% ## requires wide format
-  cronbach %>% 
-  pluck("Alpha")
+  cronbach %>% pluck("Alpha")
 csv %>%
-  filter(scale == "CON", item %in% keep_items) %>%
+  filter(scale == "CON",
+         item %in% keep_items) %>% #<<
   spread(item, response) %>% 
   select(-c(id:domain)) %>% 
-  cronbach %>% 
-  pluck("Alpha")
+  cronbach %>%  pluck("Alpha")
 ```
 
 ---
@@ -455,11 +455,13 @@ con_short <- processed %>%
   select(-scale, -domain)
 
 cor_test_helper <- function(x) {
+  x_scale <- unique(x$name)
   data <- x %>% 
     rbind(con_short) %>% 
     group_by(id, name) %>% 
-    summarise(tot = sum(response))
-  cor.test(~ tot + id, data = data)
+    summarise(total = sum(response))  %>% 
+    spread(name, total)
+  cor.test(~ CON_Short + eval(parse(text = x_scale)), data = data)
   }
 ```
 
@@ -473,13 +475,48 @@ processed %>%
   nest(-scale, -domain) %>% 
   mutate(cor_test = map(data, cor_test_helper),
          tidy = map(cor_test, list(tidy, clean_names))) %>% 
-  unnest(tidy) %>% select(-data, -cor_test, -method, -estimate) %>% 
+  unnest(tidy) %>% select(-data, -cor_test, -method) %>% 
   kable_scroll("250px", digits = 3)
+```
+
+```{r, echo = F, eval = F}
+all_totals <- processed %>% 
+  group_by(id, name) %>% 
+  summarise(total = sum(response))
+write_csv(all_totals, "all_totals.csv")
 ```
 
 ---
 
 ## Graphing
 
-[shiny app]()
+.super[
+[shiny app](https://jmbarbone.shinyapps.io/psychometric-class-scales/)
+]
 
+???
+
+#### Convergent Validity
+
+Expected positive
+
++ AAA-S aggressive
++ NPI-16
+
++ BES-Affective empathy
++ BES-Cognitive empathy: 
+
+_**Positive**_
+The **AAA-S Aggressive assertiveness** and **NPI-16** were chosen to have expected **positive correlations** with the SNCSS-17 on the proposed concept that individuals more likely to need or assume control would have greater or more frequency aggressive behaviors and greater views of themselves.
+
+_**Negative**_
+The **BES-A Affective empathy and Cognitive empathy**, **AAA-S Adaptive assertiveness**, and **Leadership Self-Report Scale Laissez-faire** were expected to _**negatively**_ correlate with the SNCSS-17.  A necessity for control was originally viewed as requiring less empathetic considerations.  Behaviors and attitudes underlining a desire for control was not recognized as a demonstration of an adaptive or uninvolved leader but more so a destructive and demanding one.
+
+
+**Affective empathy** and **cognitive empathy** had surprisingly positive correlation coefficients, thus contradicting the initial stance that attempting to acquire control is inversely correlated with an individual’s potential empathy.  The thoughts that all desire for control stems from selfish reasonings would need to reexamine.  Parsing out motivations and desires behind control, other than personal power, would help in understanding this trend in the analysis.
+
+**Laissez-faire leadership** subscale only contained 6 items, and with a sample size of _n_ = 17, the underwhelming results are of no surprise. The correlation and significance were negligible; thus no substantial considerations can be made.
+
+#### Discriminant validity
+
+Two subscales from the **Leadership Self-Report Scale, Transformational and Transactional leadership**, were _**not hypothesized to have any**_ indication for control.  

@@ -1,0 +1,10 @@
+name: shiny
+title:
+username:
+account: jbarbone
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 785415
+bundleId: 1935146
+url: https://jbarbone.shinyapps.io/shiny/
+when: 1552438254.20664
